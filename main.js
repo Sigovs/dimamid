@@ -444,25 +444,56 @@ let baseY = 0;
 
 const loader = new GLTFLoader();
 
-loader.load('astronaut.glb', (gltf) => {
-  model = gltf.scene;
-  scene.add(model);
+// Loader DOM refs — updated by onProgress, hidden when load completes
+const astroLoader = document.querySelector('.astro-loader');
+const astroLoaderBar = document.querySelector('.astro-loader__bar-fill');
+const astroLoaderPct = document.querySelector('.astro-loader__pct');
 
-  const box = new THREE.Box3().setFromObject(model);
-  const center = box.getCenter(new THREE.Vector3());
-  const size = box.getSize(new THREE.Vector3());
+loader.load(
+  'astronaut.glb',
+  // ---- onLoad ----
+  (gltf) => {
+    model = gltf.scene;
+    scene.add(model);
 
-  model.position.sub(center);
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
 
-  const maxDim = Math.max(size.x, size.y, size.z);
-  const scale = 1.8 / maxDim;
-  model.scale.setScalar(scale);
+    model.position.sub(center);
 
-  model.position.y -= 0.7;
-  baseY = model.position.y;
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = 1.8 / maxDim;
+    model.scale.setScalar(scale);
 
-  model.rotation.y = -0.25;
-});
+    model.position.y -= 0.7;
+    baseY = model.position.y;
+
+    model.rotation.y = -0.25;
+
+    // Fill bar to 100% in case server didn't report total, then fade out
+    if (astroLoaderBar) astroLoaderBar.style.width = '100%';
+    if (astroLoaderPct) astroLoaderPct.textContent = '100%';
+    if (astroLoader) {
+      astroLoader.classList.add('is-done');
+      setTimeout(() => astroLoader.remove(), 800);
+    }
+  },
+  // ---- onProgress ----
+  (xhr) => {
+    if (xhr.lengthComputable && xhr.total > 0) {
+      const pct = (xhr.loaded / xhr.total) * 100;
+      if (astroLoaderBar) astroLoaderBar.style.width = pct.toFixed(1) + '%';
+      if (astroLoaderPct) astroLoaderPct.textContent =
+        String(Math.floor(pct)).padStart(3, '0') + '%';
+    }
+  },
+  // ---- onError ----
+  (err) => {
+    console.error('[astronaut] failed to load:', err);
+    if (astroLoader) astroLoader.classList.add('is-done');
+  }
+);
 
 // INTERACTION
 let isDragging = false;

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Changa+One&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=2" />
 </head>
 
 <body>
@@ -30,6 +30,13 @@
     <span class="section-nav__item is-active" data-section="0">01</span>
     <span class="section-nav__item" data-section="1">02</span>
   </nav>
+
+  <!-- compact loader: only shown while the astronaut GLB model is downloading -->
+  <div class="astro-loader" aria-hidden="true">
+    <span class="astro-loader__label">// Traveler Loading</span>
+    <div class="astro-loader__bar"><div class="astro-loader__bar-fill"></div></div>
+    <span class="astro-loader__pct">000%</span>
+  </div>
 
   <!-- film grain overlay sits on top of canvas, below cursor -->
   <div class="grain"></div>
@@ -92,6 +99,6 @@
     </div>
   </section>
 
-  <script type="module" src="./main.js"></script>
+  <script type="module" src="./main.js?v=2"></script>
 </body>
 </html>
