@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:sigovs.github.io)",
+      "Bash(curl -s https://sigovs.github.io/dimamid/)",
+      "Bash(curl -s https://sigovs.github.io/dimamid/main.js)",
+      "Bash(curl -s \"https://esm.sh/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js\" -L)",
+      "Bash(curl -sL \"https://esm.sh/three@0.160.0/es2022/examples/jsm/postprocessing/UnrealBloomPass.mjs\")",
+      "Bash(curl -sL \"https://esm.sh/three@0.160.0/es2022/examples/jsm/postprocessing/RenderPass.mjs\")"
+    ]
+  }
+}

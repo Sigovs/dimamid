@@ -1,0 +1,44 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+/* deepest layer — bg image, slightly oversized so parallax can shift it
+   in any direction without ever revealing the edges */
+.bg-image {
+  position: fixed;
+  top: -5vh;
+  left: -5vw;
+  width: 110vw;
+  height: 110vh;
+  z-index: 0;
+  background-image: url("./assets/images/bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  will-change: transform;
+}
+
+/* dark overlay sitting on top of the bg image */
+.bg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.42);
+  pointer-events: none;
+}
+
+/* canvas sits on top, transparent, shows astronaut + stars + dust */
+canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
