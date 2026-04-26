@@ -3,6 +3,52 @@ import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GL
 import { EffectComposer } from 'https://esm.sh/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'https://esm.sh/three@0.160.0/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'https://esm.sh/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js';
+import Lenis from 'https://esm.sh/lenis@1.3.10';
+
+// SMOOTH SCROLL — Lenis hijacks the wheel/touch events and easing them
+// gently so movement feels weighted instead of jumpy
+const lenis = new Lenis({
+  duration: 1.2,
+  easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+  smoothWheel: true,
+});
+
+// SCROLL-DRIVEN STATE — read in animate() to drive ship + astronaut + slogan
+const ship = document.querySelector('.ship');
+const deckTwoInner = document.querySelector('.deck--two .deck__inner');
+const playerEl = document.querySelector('.player');
+let playerEntryScheduled = false; // ensures we only fire once
+
+// CARD TILT + CURSOR-AWARE — pointer-following 3D tilt on the deck-2 card,
+// plus expand/brighten the custom cursor ring while hovering over it.
+if (deckTwoInner) {
+  const TILT_MAX = 10; // degrees of rotation either side
+  const PERSPECTIVE = 1000;
+
+  deckTwoInner.addEventListener('pointermove', (e) => {
+    const rect = deckTwoInner.getBoundingClientRect();
+    const dx = (e.clientX - (rect.left + rect.width / 2)) / (rect.width / 2);
+    const dy = (e.clientY - (rect.top + rect.height / 2)) / (rect.height / 2);
+    const rotY = Math.max(-1, Math.min(1, dx)) * TILT_MAX;
+    const rotX = -Math.max(-1, Math.min(1, dy)) * TILT_MAX;
+    deckTwoInner.style.transform =
+      `perspective(${PERSPECTIVE}px) rotateX(${rotX.toFixed(2)}deg) rotateY(${rotY.toFixed(2)}deg)`;
+  });
+
+  deckTwoInner.addEventListener('pointerenter', () => {
+    if (cursorRing) cursorRing.classList.add('is-over-card');
+  });
+  deckTwoInner.addEventListener('pointerleave', () => {
+    deckTwoInner.style.transform = '';
+    if (cursorRing) cursorRing.classList.remove('is-over-card');
+  });
+}
+const SHIP_START_VW = 110;          // initial off-screen-right position (vw)
+const SHIP_TRAVEL_VW = 220;         // total horizontal sweep (110 → -110)
+const ASTRO_DRIFT_X = -1.2;         // 3D units — astronaut drifts to the LEFT at sp=1
+const ASTRO_DRIFT_Y = 0;            // no descent — stays roughly mid-vertical
+const ASTRO_SCROLL_SPIN = Math.PI * 0.2; // tiny lazy rotation (~36° total at sp=1)
+const SCROLL_RANGE_PX = () => window.innerHeight; // first viewport scroll
 
 // SCENE
 // bg.jpg lives in CSS under the canvas, so bloom/postprocessing
@@ -77,6 +123,9 @@ composer.addPass(bloomPass);
 
 // FILM GRAIN — DOM ref, randomised every frame in animate()
 const grain = document.querySelector('.grain');
+
+// SCROLL PROGRESS BAR — fill height tied to scroll position (updated in animate())
+const scrollProgressFill = document.querySelector('.scroll-progress__fill');
 
 // SLOGAN — split into per-char spans and stagger their rise (staircase reveal)
 const sloganEl = document.querySelector('.slogan');
@@ -194,12 +243,33 @@ function typewrite(el, text, speed, startDelay) {
 }
 
 let hudCumulativeDelay = 0;
+let coordLineEl = null;
 hudLines.forEach((el) => {
   const text = el.getAttribute('data-typewriter');
   typewrite(el, text, 22, hudCumulativeDelay);
   // each line waits for the previous to finish + a small gap
   hudCumulativeDelay += text.length * 22 + 120;
+  if (text && text.startsWith('LAT')) coordLineEl = el;
 });
+
+// HUD COORDINATES DRIFT — once the LAT/LON line finishes typing, the last
+// few digits start a slow random walk so it reads like live telemetry
+if (coordLineEl) {
+  setTimeout(() => {
+    const baseLat = 47.6062;
+    const baseLon = -122.3321;
+    let latVal = baseLat;
+    let lonVal = baseLon;
+    setInterval(() => {
+      latVal += (Math.random() - 0.5) * 0.0008;
+      lonVal += (Math.random() - 0.5) * 0.0008;
+      // clamp the random walk so it doesn't drift off the original coords
+      latVal = Math.max(baseLat - 0.005, Math.min(baseLat + 0.005, latVal));
+      lonVal = Math.max(baseLon - 0.005, Math.min(baseLon + 0.005, lonVal));
+      coordLineEl.textContent = `LAT ${latVal.toFixed(4)}° // LON ${lonVal.toFixed(4)}°`;
+    }, 700);
+  }, hudCumulativeDelay + 200);
+}
 
 function updateHudClock() {
   if (!hudClock) return;
@@ -438,10 +508,64 @@ window.addEventListener('pointercancel', () => {
 });
 
 // ANIMATION
-function animate() {
+function animate(now) {
   requestAnimationFrame(animate);
 
+  // drive Lenis with the same rAF tick (it expects ms)
+  lenis.raf(now || performance.now());
+
   const time = performance.now() * 0.001;
+
+  // SCROLL PROGRESS — 0 at top, 1 after one viewport scrolled
+  const scrollProgress = Math.min(window.scrollY / SCROLL_RANGE_PX(), 1);
+
+  // SHIP — sweep right→left, with depth scale + yaw + bigger wobble & float,
+  // brightness pulses rhythmically (engines breathing) without external glow.
+  if (ship) {
+    const shipX = SHIP_START_VW - scrollProgress * SHIP_TRAVEL_VW;
+    const shipY = Math.sin(time * 0.4) * 16;          // bigger vertical float
+
+    // 1 at centre crossing (sp≈0.31), 0 at the far edges of the flight
+    const depthFactor = Math.max(0, 1 - Math.abs(scrollProgress - 0.31) / 0.45);
+
+    // depth illusion via scale + atmospheric brightness/saturate
+    const baseScale = 0.52 + depthFactor * 0.73;      // 0.52 → 1.25 (smaller start)
+    // SCROLL REACTION — grows while user is scrolling, shrinks back to baseScale
+    // when scroll velocity decays to 0. Lenis smooths velocity for us.
+    const scrollSpeed = Math.abs(lenis.velocity || 0);  // px/frame
+    const reactBoost = Math.min(scrollSpeed / 28, 0.55); // up to +55%
+    const scale = baseScale * (1 + reactBoost);
+    const saturate = 0.7 + depthFactor * 0.7;         // 0.7 → 1.4
+    const bankZ = Math.sin(time * 0.5) * 6;           // ±6° roll wobble (bigger)
+
+    // PULSE — applied to brightness so ship visibly breathes without halo glow
+    const pulse = 0.5 + 0.5 * Math.sin(time * 1.6);   // 0 → 1, ~1.6/sec
+    const brightness = (0.45 + depthFactor * 0.65) * (0.85 + pulse * 0.3); // pulses ±15%
+
+    ship.style.transform =
+      `translate3d(${shipX}vw, ${shipY}px, 0) ` +
+      `perspective(800px) rotateY(-15deg) rotateZ(${bankZ}deg) scale(${scale.toFixed(3)})`;
+    ship.style.filter =
+      `brightness(${brightness.toFixed(2)}) saturate(${saturate.toFixed(2)})`;
+  }
+
+  // DECK-2 REVEAL — text rises up + fades in as it enters viewport.
+  // Big translate distance + smooth easing so the rise is unmistakable.
+  if (deckTwoInner) {
+    const rect = deckTwoInner.getBoundingClientRect();
+    const penetration = window.innerHeight - rect.top;     // px crossed below fold
+    const linear = Math.max(0, Math.min(penetration / 250, 1));
+    const reveal = 1 - Math.pow(1 - linear, 3); // ease-out cubic
+    deckTwoInner.style.opacity = String(reveal.toFixed(2));
+    deckTwoInner.style.translate = `0 ${((1 - reveal) * 220).toFixed(0)}px`;
+
+    // PLAYER ENTRY — fire once, 250 ms after the bio reveal completes,
+    // so the player floats up only when the bio has settled.
+    if (linear >= 1 && !playerEntryScheduled && playerEl) {
+      playerEntryScheduled = true;
+      setTimeout(() => playerEl.classList.add('is-ready'), 250);
+    }
+  }
 
   if (model) {
     if (!isDragging) {
@@ -465,11 +589,27 @@ function animate() {
     model.rotation.x +=
       (targetRotationX + Math.sin(time * 0.6) * 0.04 - model.rotation.x) * 0.08;
 
-    model.position.y = baseY + Math.sin(time * 1.2) * 0.08;
+    // SCROLL-DRIVEN POSITION — astronaut slowly drifts down-right as user scrolls
+    model.position.y = baseY + Math.sin(time * 1.2) * 0.08 + scrollProgress * ASTRO_DRIFT_Y;
+    model.position.x = scrollProgress * ASTRO_DRIFT_X;
+
+    // SCROLL-DRIVEN ROTATION — extra spin layered on top of the smoothed targetY
+    // (auto-rotation/drag still runs; this just adds a scroll-tied offset)
+    model.rotation.y += scrollProgress * ASTRO_SCROLL_SPIN;
 
     model.rotation.z =
       Math.sin(model.rotation.y * 0.7) * 0.12 +
       Math.sin(time * 0.8) * 0.03;
+  }
+
+  // SLOGAN — flies up and fades to 0 as user scrolls into deck-2
+  // (uses the standalone `translate` CSS property so it composes with the
+  //  glitch animation's transform without conflict)
+  if (sloganEl) {
+    // slogan fades out early — gone by sp=0.2 (ship is still in the right third)
+    const fadeProg = Math.min(scrollProgress / 0.2, 1);
+    sloganEl.style.translate = `0 ${-fadeProg * 50}vh`;
+    sloganEl.style.opacity = String(1 - fadeProg);
   }
 
   stars.rotation.y += 0.00025;
@@ -499,6 +639,13 @@ function animate() {
       `${(Math.random() * 200) | 0}px ${(Math.random() * 200) | 0}px`;
   }
 
+  // SCROLL PROGRESS — fill bar height = scroll position / max scroll
+  if (scrollProgressFill) {
+    const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+    const pct = maxScroll > 0 ? window.scrollY / maxScroll : 0;
+    scrollProgressFill.style.transform = `scaleY(${pct.toFixed(4)})`;
+  }
+
   // HUD CLOCK — live mission time
   updateHudClock();
 
@@ -515,3 +662,49 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   composer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// =========================================================================
+// NOW PLAYING WIDGET — local HTML5 <audio> playback.
+// - Entry: triggered from the main animate() loop the moment the bio card's
+//   scroll-driven reveal completes (linear >= 1) + 250 ms grace.
+// - Playback: native <audio> element — play/pause via DOM API, UI state
+//   driven by audio's own `play`/`pause`/`ended` events.
+// =========================================================================
+(function setupPlayer() {
+  const player = document.querySelector('.player');
+  if (!player) return;
+
+  const playBtn = player.querySelector('.player__play');
+  const audio   = player.querySelector('.player__audio');
+
+  // ---- AUDIO CONTROL ------------------------------------------------------
+  if (!audio) return;
+
+  function setPlayingUI(playing) {
+    player.classList.toggle('is-playing', playing);
+    playBtn.setAttribute(
+      'aria-label',
+      playing ? 'Pause Humble Guest' : 'Play Humble Guest'
+    );
+  }
+
+  // Audio events drive the UI — single source of truth, so playing state
+  // stays correct even if audio pauses for buffering, ends, or fails.
+  audio.addEventListener('play',  () => setPlayingUI(true));
+  audio.addEventListener('pause', () => setPlayingUI(false));
+  audio.addEventListener('ended', () => setPlayingUI(false));
+  audio.addEventListener('error', () => {
+    setPlayingUI(false);
+    console.warn('[player] audio failed to load:', audio.currentSrc);
+  });
+
+  playBtn.addEventListener('click', () => {
+    if (audio.paused) {
+      // play() returns a Promise that rejects if browser blocks autoplay,
+      // but a user click satisfies the gesture requirement, so this resolves.
+      audio.play().catch((err) => console.warn('[player] play failed:', err));
+    } else {
+      audio.pause();
+    }
+  });
+})();

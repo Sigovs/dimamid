@@ -2,10 +2,8 @@ html,
 body {
   margin: 0;
   padding: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
   background: #000;
+  /* page now scrolls — sections drive the height */
 }
 
 /* deepest layer — bg image with a fixed-pixel buffer on every side
@@ -75,7 +73,7 @@ canvas {
   z-index: 1;
   pointer-events: none;
   user-select: none;
-  font-family: "Monoton", ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: "Changa One", ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 60px;
   letter-spacing: 0.32em;
   text-transform: uppercase;
@@ -207,6 +205,26 @@ canvas {
   50% { opacity: 0; }
 }
 
+/* SCROLL PROGRESS — thin vertical fill bar pinned to right edge */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 2px;
+  height: 100vh;
+  background: rgba(255, 255, 255, 0.04);
+  z-index: 6;
+  pointer-events: none;
+}
+.scroll-progress__fill {
+  width: 100%;
+  height: 100%;
+  background: rgba(220, 230, 245, 0.5);
+  transform-origin: top;
+  transform: scaleY(0);
+  will-change: transform;
+}
+
 /* film grain — subtle SVG noise above the canvas
    tweak opacity (0.04–0.12) and blend-mode for taste */
 .grain {
@@ -259,6 +277,14 @@ canvas {
     width: 56px;
     height: 56px;
   }
+
+  /* enlarged + brighter when hovering over an interactive card */
+  .cursor-ring.is-over-card {
+    width: 72px;
+    height: 72px;
+    border-color: rgba(255, 255, 255, 0.95);
+    background: rgba(255, 255, 255, 0.04);
+  }
 }
 
 @media (hover: none), (pointer: coarse) {
@@ -266,4 +292,391 @@ canvas {
   .cursor-ring {
     display: none;
   }
+}
+
+/* SHIP — flies right→left between bg and canvas (passes BEHIND astronaut) */
+.ship {
+  position: fixed;
+  top: 38%;
+  left: 0;
+  width: 360px;       /* tune to taste — controls visual scale */
+  height: auto;
+  z-index: 1;
+  pointer-events: none;
+  transform: translate3d(110vw, 0, 0); /* off-screen right initially */
+  will-change: transform;
+  opacity: 0.9;
+}
+.ship img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .ship {
+    width: 220px;     /* smaller ship on mobile */
+  }
+}
+
+/* SECTIONS / DECKS — give the page scrollable height. Hero is empty
+   (all hero visuals are fixed-positioned). Following decks hold actual content. */
+.deck {
+  position: relative;
+  min-height: 100vh;
+  z-index: 6; /* above canvas so text reads cleanly */
+  pointer-events: none; /* clicks pass through to canvas in empty areas */
+}
+.deck__inner {
+  pointer-events: auto; /* but content itself is interactive */
+}
+
+/* deck-2: two-column layout — left half empty (astronaut lives there),
+   text stack lives in the right half, vertically centered */
+.deck--two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  padding: 80px 5vw;
+  /* 1400px centred safe zone — content stays inside on wide screens */
+  max-width: 1400px;
+  margin: 0 auto;
+}
+/* right column wrapper — holds bio card + player as a vertical pair */
+.deck--two .deck__right {
+  grid-column: 2;
+  justify-self: start;
+  max-width: 480px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px; /* tight visual pair — bio + player */
+  /* re-enable pointer events — the parent .deck has pointer-events:none
+     to let clicks in empty space hit the canvas (astronaut drag), but the
+     content wrapper itself MUST be interactive */
+  pointer-events: auto;
+}
+
+.deck--two .deck__inner {
+  position: relative; /* for ::after / ::before pseudo-elements */
+  /* FROSTED GLASS — cool palette, slight blue undertone +
+     SHIMMER LAYER on top (slow diagonal light catches across the surface) */
+  background:
+    linear-gradient(105deg,
+      transparent 35%,
+      rgba(255, 255, 255, 0.07) 48%,
+      rgba(255, 255, 255, 0.04) 52%,
+      transparent 65%) -120% 0 / 220% 100% no-repeat,
+    linear-gradient(135deg,
+      rgba(202, 196, 230, 0.06) 0%,
+      rgba(163, 195, 243, 0.11) 100%);
+  animation: card-shimmer 9s linear infinite;
+  backdrop-filter: blur(28px) saturate(140%);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
+  border: 1px solid rgba(200, 220, 240, 0.10);
+  border-radius: 24px;
+  padding: 44px 90px 44px 48px; /* more compact + room for vertical label */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 0 80px rgba(140, 170, 200, 0.04),
+    0 16px 48px rgba(0, 0, 0, 0.45);
+  /* INITIAL STATE — fully transparent and offset down until scroll-driven JS reveals it */
+  opacity: 0;
+  translate: 0 220px;
+  /* TILT — smooth catch-up to mouse-driven transform */
+  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+/* SHIMMER — diagonal light slowly traverses the frosted surface */
+@keyframes card-shimmer {
+  0%   { background-position: -120% 0, 0 0; }
+  100% { background-position:  120% 0, 0 0; }
+}
+
+/* vertical date label on the right edge of the card */
+.deck--two .deck__inner::after {
+  content: attr(data-side-label);
+  position: absolute;
+  top: 32px;
+  bottom: 32px;
+  right: 28px;
+  display: flex;
+  align-items: center;
+  writing-mode: vertical-rl;
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: rgba(220, 230, 245, 0.5);
+  pointer-events: none;
+}
+
+/* subtle vertical separator between content and date label */
+.deck--two .deck__inner::before {
+  content: '';
+  position: absolute;
+  top: 32px;
+  bottom: 32px;
+  right: 64px;
+  width: 1px;
+  background: linear-gradient(to bottom,
+    transparent 0%,
+    rgba(200, 220, 240, 0.14) 20%,
+    rgba(200, 220, 240, 0.14) 80%,
+    transparent 100%);
+  pointer-events: none;
+}
+
+/* category tag in the corner — Active Theory style mono label */
+.deck__tag {
+  display: block;
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(220, 230, 245, 0.45);
+  margin: 0 0 28px;
+}
+
+.deck__title {
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  font-size: clamp(28px, 2.6vw, 40px);
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  line-height: 1.15;
+  color: rgba(235, 240, 250, 0.95);
+  margin: 0 0 28px;
+}
+.deck__body {
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.7;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(220, 230, 245, 0.7);
+  margin: 0;
+}
+
+/* MOBILE — stack as single column, push content under astronaut */
+@media (max-width: 768px) {
+  .deck--two {
+    grid-template-columns: 1fr;
+    padding: 60vh 6vw 80px;
+  }
+  .deck--two .deck__right {
+    grid-column: 1;
+    max-width: none;
+  }
+  .deck--two .deck__inner {
+    padding: 32px 28px;
+    border-radius: 16px;
+  }
+  /* hide vertical date label on mobile (no room) */
+  .deck--two .deck__inner::after,
+  .deck--two .deck__inner::before {
+    display: none;
+  }
+}
+
+
+/* =========================================================================
+   NOW PLAYING WIDGET
+   Slim row under the bio card. Hidden until the bio card has revealed,
+   then fades + lifts in. Play button drives a hidden YouTube iframe (audio-only).
+   ========================================================================= */
+
+.player {
+  position: relative;
+  /* keep the player above the bio card — the bio's translateY/tilt transforms
+     visually overlap the player area and were intercepting clicks */
+  z-index: 2;
+  isolation: isolate; /* own stacking context — bio's 3D transform can't reach in */
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 18px 14px 14px;
+  background: rgba(15, 22, 35, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(176, 141, 87, 0.25);
+  border-radius: 16px;
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* ENTRY — short, punchy fade-in from below.
+     Triggered by .is-ready added from animate() once the bio card has settled. */
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.player.is-ready {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* PLAY/PAUSE BUTTON — circular brass disc */
+.player__play {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid rgba(176, 141, 87, 0.55);
+  background: rgba(15, 22, 35, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s, background 0.3s;
+}
+.player__play:hover {
+  border-color: rgba(255, 140, 66, 0.85);
+  transform: scale(1.06);
+  box-shadow: 0 0 22px rgba(255, 140, 66, 0.25);
+}
+.player__icon {
+  width: 18px;
+  height: 18px;
+  fill: #FF8C42;
+}
+/* show play OR pause icon based on .is-playing — purely CSS-driven */
+.player .player__icon-pause { display: none; }
+.player.is-playing .player__icon-play  { display: none; }
+.player.is-playing .player__icon-pause { display: block; }
+
+/* EQ BARS */
+.player__bars {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  width: 110px;
+  height: 36px;
+}
+.player__bars span {
+  display: block;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(to top, #A57441 0%, #B08D57 100%);
+  border-radius: 1.5px;
+  transform-origin: bottom;
+  transform: scaleY(0.2);
+  /* idle state — gentle 4s breathing */
+  animation: bar-breathe 4s ease-in-out infinite;
+  transition: transform 0.4s ease;
+}
+@keyframes bar-breathe {
+  0%, 100% { transform: scaleY(0.18); }
+  50%      { transform: scaleY(0.26); }
+}
+.player__bars span:nth-child(2)  { animation-delay: -0.4s; }
+.player__bars span:nth-child(3)  { animation-delay: -1.2s; }
+.player__bars span:nth-child(4)  { animation-delay: -2.0s; }
+.player__bars span:nth-child(5)  { animation-delay: -0.7s; }
+.player__bars span:nth-child(6)  { animation-delay: -2.6s; }
+.player__bars span:nth-child(7)  { animation-delay: -1.5s; }
+.player__bars span:nth-child(8)  { animation-delay: -0.3s; }
+.player__bars span:nth-child(9)  { animation-delay: -3.1s; }
+.player__bars span:nth-child(10) { animation-delay: -1.8s; }
+.player__bars span:nth-child(11) { animation-delay: -0.9s; }
+.player__bars span:nth-child(12) { animation-delay: -2.3s; }
+.player__bars span:nth-child(13) { animation-delay: -1.1s; }
+.player__bars span:nth-child(14) { animation-delay: -0.5s; }
+
+/* PLAYING STATE — bars switch to fast EQ animation, each with own timing */
+.player.is-playing .player__bars span {
+  animation: bar-eq 0.9s ease-in-out infinite;
+}
+@keyframes bar-eq {
+  0%, 100% { transform: scaleY(0.15); }
+  50%      { transform: scaleY(0.95); }
+}
+.player.is-playing .player__bars span:nth-child(1)  { animation-duration: 0.80s; animation-delay: -0.10s; }
+.player.is-playing .player__bars span:nth-child(2)  { animation-duration: 1.00s; animation-delay: -0.40s; }
+.player.is-playing .player__bars span:nth-child(3)  { animation-duration: 0.70s; animation-delay: -0.60s; }
+.player.is-playing .player__bars span:nth-child(4)  { animation-duration: 1.10s; animation-delay: -0.20s; }
+.player.is-playing .player__bars span:nth-child(5)  { animation-duration: 0.90s; animation-delay: -0.80s; }
+.player.is-playing .player__bars span:nth-child(6)  { animation-duration: 0.60s; animation-delay: -0.30s; }
+.player.is-playing .player__bars span:nth-child(7)  { animation-duration: 1.20s; animation-delay: -0.50s; }
+.player.is-playing .player__bars span:nth-child(8)  { animation-duration: 0.85s; animation-delay: -0.70s; }
+.player.is-playing .player__bars span:nth-child(9)  { animation-duration: 0.95s; animation-delay: -0.15s; }
+.player.is-playing .player__bars span:nth-child(10) { animation-duration: 0.75s; animation-delay: -0.55s; }
+.player.is-playing .player__bars span:nth-child(11) { animation-duration: 1.05s; animation-delay: -0.25s; }
+.player.is-playing .player__bars span:nth-child(12) { animation-duration: 0.65s; animation-delay: -0.65s; }
+.player.is-playing .player__bars span:nth-child(13) { animation-duration: 1.15s; animation-delay: -0.35s; }
+.player.is-playing .player__bars span:nth-child(14) { animation-duration: 0.90s; animation-delay: -0.45s; }
+
+/* TRACK INFO STACK */
+.player__info {
+  flex: 1;
+  min-width: 0; /* let track text truncate */
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.player__label {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #B08D57;
+}
+.player__track {
+  font-size: 13px;
+  color: #E8E6DD;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* RIGHT-SIDE LINK */
+.player__link {
+  flex-shrink: 0;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #8A8578;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+.player__link:hover {
+  color: #B08D57;
+}
+
+/* HIDDEN YT IFRAME HOST — audio-only playback, visually invisible */
+.player__yt {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* REDUCED MOTION — show widget immediately, freeze bars at 30% */
+@media (prefers-reduced-motion: reduce) {
+  .player {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .player__bars span,
+  .player.is-playing .player__bars span {
+    animation: none !important;
+    transform: scaleY(0.3) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .player {
+    gap: 12px;
+    padding: 12px;
+  }
+  .player__bars { width: 70px; }
+  /* hide the secondary link on narrow screens to keep the row compact */
+  .player__link { display: none; }
 }

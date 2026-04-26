@@ -6,7 +6,7 @@
   <title>DIMAMID</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Monoton&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Changa+One&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 
@@ -19,6 +19,16 @@
 
   <!-- logo floats up into the top center on page load -->
   <img class="logo" src="./assets/images/logo.svg" alt="DIMAMID" />
+
+  <!-- ship — flies behind the astronaut on scroll -->
+  <div class="ship" aria-hidden="true">
+    <img src="./assets/images/ship1.png" alt="" />
+  </div>
+
+  <!-- thin vertical scroll-progress bar pinned to right edge -->
+  <div class="scroll-progress" aria-hidden="true">
+    <div class="scroll-progress__fill"></div>
+  </div>
 
   <!-- film grain overlay sits on top of canvas, below cursor -->
   <div class="grain"></div>
@@ -36,6 +46,50 @@
   <!-- custom cursor: small dot follows instantly, ring lags slightly -->
   <div class="cursor-dot"></div>
   <div class="cursor-ring"></div>
+
+  <!-- SCROLLABLE DECKS — hero is empty (visuals are fixed); deck-2 has real content -->
+  <section class="deck deck--hero" aria-label="Hero"></section>
+  <section class="deck deck--two">
+    <div class="deck__right">
+      <div class="deck__inner" data-side-label="2025 — PRESENT">
+        <span class="deck__tag">// 01 — Voice</span>
+        <h2 class="deck__title">The Voice &amp; The Orbit.</h2>
+        <p class="deck__body">Dimamid is a music project built on one simple practice: paying attention. The songs sit between folk and ambient, rave and reflection — small, patient, full of questions that don't need answers. Always wondering why things must change is less a lyric than the orbit the whole catalogue moves around.</p>
+      </div>
+
+      <!-- NOW PLAYING widget — sits directly under the bio card -->
+      <div class="player">
+        <button class="player__play" type="button" aria-label="Play Humble Guest">
+          <svg class="player__icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path class="player__icon-play" d="M8 5v14l11-7z" />
+            <path class="player__icon-pause" d="M6 5h4v14H6zm8 0h4v14h-4z" />
+          </svg>
+        </button>
+
+        <!-- 14 EQ bars; per-bar timing is CSS-driven via :nth-child -->
+        <div class="player__bars" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span>
+        </div>
+
+        <div class="player__info">
+          <span class="player__label">// Now Spinning</span>
+          <span class="player__track">Humble Guest · DIMAMID</span>
+        </div>
+
+        <a class="player__link"
+           href="./assets/audio/Humble%20Guest%20-%20DIMAMID.mp3"
+           target="_blank" rel="noopener noreferrer">Open audio ↗</a>
+
+        <!-- Native HTML5 audio — local file, no external API needed -->
+        <audio class="player__audio" preload="metadata" playsinline
+               title="Audio player">
+          <source src="./assets/audio/Humble%20Guest%20-%20DIMAMID.mp3" type="audio/mpeg" />
+        </audio>
+      </div>
+    </div>
+  </section>
 
   <script type="module" src="./main.js"></script>
 </body>
