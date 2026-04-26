@@ -75,6 +75,170 @@ bloomPass.blendMaterial = new THREE.ShaderMaterial({
 });
 composer.addPass(bloomPass);
 
+// FILM GRAIN — DOM ref, randomised every frame in animate()
+const grain = document.querySelector('.grain');
+
+// SLOGAN — split into per-char spans and stagger their rise (staircase reveal)
+const sloganEl = document.querySelector('.slogan');
+if (sloganEl) {
+  const text = sloganEl.textContent;
+  sloganEl.textContent = '';
+  // Tunables
+  const SLOGAN_BASE_DELAY = 0.4;     // seconds before first wave arrives
+  const WAVE_GAP = 0.18;             // seconds between waves
+  const WAVE_SIZES = [3, 2, 1];      // letters per wave, repeats
+  const FROM_DISTANCE_VW = 60;       // how far off-screen each letter starts (vw units)
+
+  // build wave indices for one side: outermost-inward, cycling 3-2-1
+  function buildWaveIndices(count) {
+    const out = [];
+    let waveIdx = 0;
+    let posInWave = 0;
+    let currentSize = WAVE_SIZES[0];
+    for (let i = 0; i < count; i++) {
+      out.push(waveIdx);
+      posInWave++;
+      if (posInWave >= currentSize) {
+        waveIdx++;
+        posInWave = 0;
+        currentSize = WAVE_SIZES[waveIdx % WAVE_SIZES.length];
+      }
+    }
+    return out;
+  }
+
+  const allChars = text.split('');
+  const N = allChars.length;
+  const mid = Math.ceil(N / 2);
+  const leftWaves = buildWaveIndices(mid);
+  const rightWaves = buildWaveIndices(N - mid);
+
+  allChars.forEach((ch, i) => {
+    const span = document.createElement('span');
+    span.className = 'slogan__char';
+    span.textContent = ch === ' ' ? ' ' : ch;
+    let waveIdx;
+    if (i < mid) {
+      // left half: outermost (i=0) flies first
+      span.style.transform = `translateX(-${FROM_DISTANCE_VW}vw)`;
+      waveIdx = leftWaves[i];
+    } else {
+      // right half: outermost (i=N-1) flies first → reverse mapping
+      span.style.transform = `translateX(${FROM_DISTANCE_VW}vw)`;
+      waveIdx = rightWaves[N - 1 - i];
+    }
+    span.style.animationDelay = `${SLOGAN_BASE_DELAY + waveIdx * WAVE_GAP}s`;
+    sloganEl.appendChild(span);
+  });
+
+  // GLITCH — periodically swap a few adjacent letters, then restore.
+  const GLITCH_START_MS = 4000;       // wait for staircase reveal to finish
+  const GLITCH_MIN_GAP_MS = 2500;     // shortest pause between bursts
+  const GLITCH_MAX_GAP_MS = 4500;     // longest pause between bursts
+  const GLITCH_HOLD_MS = 140;         // how long letters stay swapped
+  const GLITCH_SWAPS_PER_BURST = 3;   // how many pairs to swap each burst
+
+  const sloganChars = Array.from(sloganEl.querySelectorAll('.slogan__char'));
+  const sloganOriginal = sloganChars.map((el) => el.textContent);
+
+  function glitchSwapLetters() {
+    for (let n = 0; n < GLITCH_SWAPS_PER_BURST; n++) {
+      const i = Math.floor(Math.random() * (sloganChars.length - 1));
+      const a = sloganChars[i].textContent;
+      const b = sloganChars[i + 1].textContent;
+      // skip pairs that touch a space — don't break word boundaries
+      if (a.trim() === '' || b.trim() === '') continue;
+      sloganChars[i].textContent = b;
+      sloganChars[i + 1].textContent = a;
+    }
+    setTimeout(() => {
+      sloganChars.forEach((el, idx) => {
+        el.textContent = sloganOriginal[idx];
+      });
+    }, GLITCH_HOLD_MS);
+  }
+
+  function scheduleSloganGlitch() {
+    const wait = GLITCH_MIN_GAP_MS + Math.random() * (GLITCH_MAX_GAP_MS - GLITCH_MIN_GAP_MS);
+    setTimeout(() => {
+      glitchSwapLetters();
+      scheduleSloganGlitch();
+    }, wait);
+  }
+  setTimeout(scheduleSloganGlitch, GLITCH_START_MS);
+}
+
+// HUD — typewriter on load + live mission clock
+const hudLines = document.querySelectorAll('[data-typewriter]');
+const hudClock = document.querySelector('[data-clock]');
+const hudStart = performance.now();
+
+function typewrite(el, text, speed, startDelay) {
+  el.textContent = '';
+  el.classList.add('is-typing');
+  setTimeout(() => {
+    let i = 0;
+    const tick = () => {
+      if (i < text.length) {
+        // innerHTML so we can keep entities like &nbsp;
+        el.innerHTML += text[i++];
+        setTimeout(tick, speed);
+      } else {
+        el.classList.remove('is-typing');
+      }
+    };
+    tick();
+  }, startDelay);
+}
+
+let hudCumulativeDelay = 0;
+hudLines.forEach((el) => {
+  const text = el.getAttribute('data-typewriter');
+  typewrite(el, text, 22, hudCumulativeDelay);
+  // each line waits for the previous to finish + a small gap
+  hudCumulativeDelay += text.length * 22 + 120;
+});
+
+function updateHudClock() {
+  if (!hudClock) return;
+  const elapsed = performance.now() - hudStart;
+  const total = Math.floor(elapsed / 1000);
+  const cs = Math.floor((elapsed % 1000) / 10);   // centiseconds
+  const s = total % 60;
+  const m = Math.floor(total / 60) % 60;
+  const h = Math.floor(total / 3600);
+  const pad = (n) => String(n).padStart(2, '0');
+  hudClock.textContent = `${pad(h)}:${pad(m)}:${pad(s)}:${pad(cs)}`;
+}
+
+// CUSTOM CURSOR (desktop only — CSS hides these on touch via media query)
+const cursorDot = document.querySelector('.cursor-dot');
+const cursorRing = document.querySelector('.cursor-ring');
+let cursorX = 0;
+let cursorY = 0;
+let ringX = 0;
+let ringY = 0;
+const CURSOR_DOT_HALF = 3;   // half of 6px
+const CURSOR_RING_HALF = 18; // half of 36px
+
+window.addEventListener('pointermove', (e) => {
+  cursorX = e.clientX;
+  cursorY = e.clientY;
+  if (cursorDot) {
+    cursorDot.style.transform =
+      `translate3d(${cursorX - CURSOR_DOT_HALF}px, ${cursorY - CURSOR_DOT_HALF}px, 0)`;
+  }
+});
+
+// expand ring while dragging the astronaut for visual feedback
+window.addEventListener('pointerdown', () => {
+  if (cursorRing) cursorRing.classList.add('is-grabbing');
+});
+const clearGrab = () => cursorRing && cursorRing.classList.remove('is-grabbing');
+window.addEventListener('pointerup', clearGrab);
+window.addEventListener('pointerleave', clearGrab);
+window.addEventListener('pointercancel', clearGrab);
+
 // BG PARALLAX (mouse-driven, both axes)
 const bgImage = document.querySelector('.bg-image');
 let bgTargetX = 0; // -1..1, set by mousemove
@@ -283,8 +447,8 @@ function animate() {
       targetRotationY += velocityY;
       targetRotationX += velocityX;
 
-      velocityY *= 0.94;
-      velocityX *= 0.92;
+      velocityY *= 0.3;
+      velocityX *= 0.3;
 
       targetRotationX += (0.05 - targetRotationX) * 0.015;
 
@@ -317,6 +481,24 @@ function animate() {
   bgX += (-bgTargetX * BG_PARALLAX_X_PX - bgX) * BG_PARALLAX_X_EASE;
   bgY += (-bgTargetY * BG_PARALLAX_Y_PX - bgY) * BG_PARALLAX_Y_EASE;
   if (bgImage) bgImage.style.transform = `translate3d(${bgX}px, ${bgY}px, 0)`;
+
+  // CURSOR RING — lags behind the dot for a soft trailing feel
+  ringX += (cursorX - ringX) * 0.18;
+  ringY += (cursorY - ringY) * 0.18;
+  if (cursorRing) {
+    cursorRing.style.transform =
+      `translate3d(${ringX - CURSOR_RING_HALF}px, ${ringY - CURSOR_RING_HALF}px, 0)`;
+  }
+
+  // GRAIN — shift the SVG noise tile every frame so it shimmers like film
+  // (range 0–200 matches the tile size so edges never show)
+  if (grain) {
+    grain.style.backgroundPosition =
+      `${(Math.random() * 200) | 0}px ${(Math.random() * 200) | 0}px`;
+  }
+
+  // HUD CLOCK — live mission time
+  updateHudClock();
 
   composer.render();
 }
