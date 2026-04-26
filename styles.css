@@ -109,12 +109,11 @@ canvas {
   }
 }
 
-/* MOBILE — split slogan into 3 lines (each space becomes a line break)
-   and shrink the text 20% so it fits the screen */
+/* MOBILE — slogan breaks into 3 lines (Always / Wondering / Why)
+   and shrinks 20%; on desktop it stays as one line */
 @media (max-width: 768px) {
   .slogan {
     font-size: 48px;          /* 60px × 0.8 */
-    white-space: normal;
   }
   .slogan__char--space {
     display: block;
