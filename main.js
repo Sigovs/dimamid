@@ -449,6 +449,24 @@ const astroLoader = document.querySelector('.astro-loader');
 const astroLoaderBar = document.querySelector('.astro-loader__bar-fill');
 const astroLoaderPct = document.querySelector('.astro-loader__pct');
 
+// Minimum time the loader stays visible. Even if the GLB is cached and the
+// onLoad fires almost immediately, hold the loader so the user actually sees it.
+const ASTRO_LOADER_MIN_MS = 1200;
+const astroLoaderStart = performance.now();
+
+function hideAstroLoader() {
+  if (astroLoaderBar) astroLoaderBar.style.width = '100%';
+  if (astroLoaderPct) astroLoaderPct.textContent = '100%';
+  const elapsed = performance.now() - astroLoaderStart;
+  const remainingHold = Math.max(0, ASTRO_LOADER_MIN_MS - elapsed);
+  setTimeout(() => {
+    if (astroLoader) {
+      astroLoader.classList.add('is-done');
+      setTimeout(() => astroLoader.remove(), 800);
+    }
+  }, remainingHold);
+}
+
 loader.load(
   'astronaut.glb',
   // ---- onLoad ----
@@ -471,13 +489,7 @@ loader.load(
 
     model.rotation.y = -0.25;
 
-    // Fill bar to 100% in case server didn't report total, then fade out
-    if (astroLoaderBar) astroLoaderBar.style.width = '100%';
-    if (astroLoaderPct) astroLoaderPct.textContent = '100%';
-    if (astroLoader) {
-      astroLoader.classList.add('is-done');
-      setTimeout(() => astroLoader.remove(), 800);
-    }
+    hideAstroLoader();
   },
   // ---- onProgress ----
   (xhr) => {

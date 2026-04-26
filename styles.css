@@ -77,11 +77,11 @@ canvas {
   font-size: 60px;
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: rgba(255, 138, 25, 0.85); /* #FF8A19 */
+  color: rgba(154, 224, 229, 0.85); /* #9AE0E5 */
   /* warm orange glow — two layered shadows: tight + halo */
   text-shadow:
-    0 0 12px rgba(255, 138, 25, 0.6),
-    0 0 32px rgba(255, 138, 25, 0.35);
+    0 0 12px rgba(154, 224, 229, 0.6),
+    0 0 32px rgba(154, 224, 229, 0.35);
   text-align: center;
   white-space: nowrap;
   mix-blend-mode: difference;
@@ -139,8 +139,8 @@ canvas {
   3% {
     transform: translate(-50%, -50%);
     text-shadow:
-      0 0 12px rgba(255, 138, 25, 0.6),
-      0 0 32px rgba(255, 138, 25, 0.35);
+      0 0 12px rgba(154, 224, 229, 0.6),
+      0 0 32px rgba(154, 224, 229, 0.35);
   }
   /* long calm period until burst 2 */
 
@@ -160,14 +160,14 @@ canvas {
   63% {
     transform: translate(-50%, -50%);
     text-shadow:
-      0 0 12px rgba(255, 138, 25, 0.6),
-      0 0 32px rgba(255, 138, 25, 0.35);
+      0 0 12px rgba(154, 224, 229, 0.6),
+      0 0 32px rgba(154, 224, 229, 0.35);
   }
   100% {
     transform: translate(-50%, -50%);
     text-shadow:
-      0 0 12px rgba(255, 138, 25, 0.6),
-      0 0 32px rgba(255, 138, 25, 0.35);
+      0 0 12px rgba(154, 224, 229, 0.6),
+      0 0 32px rgba(154, 224, 229, 0.35);
   }
 }
 
