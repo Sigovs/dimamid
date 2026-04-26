@@ -113,7 +113,7 @@ canvas {
    and shrinks 20%; on desktop it stays as one line */
 @media (max-width: 768px) {
   .slogan {
-    font-size: 48px;          /* 60px × 0.8 */
+    font-size: 38px;          /* 48px × 0.8 (60px × 0.8 × 0.8) */
   }
   .slogan__char--space {
     display: block;
