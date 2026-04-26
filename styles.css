@@ -109,6 +109,20 @@ canvas {
   }
 }
 
+/* MOBILE — split slogan into 3 lines (each space becomes a line break)
+   and shrink the text 20% so it fits the screen */
+@media (max-width: 768px) {
+  .slogan {
+    font-size: 48px;          /* 60px × 0.8 */
+    white-space: normal;
+  }
+  .slogan__char--space {
+    display: block;
+    width: 0;
+    height: 0;
+  }
+}
+
 /* GLITCH — two short bursts per loop, RGB chromatic split + tiny position jitter.
    steps(1) makes each keyframe a hard jump (no interpolation), feels digital. */
 @keyframes slogan-glitch {

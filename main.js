@@ -116,6 +116,8 @@ if (sloganEl) {
   allChars.forEach((ch, i) => {
     const span = document.createElement('span');
     span.className = 'slogan__char';
+    // mark spaces so mobile CSS can turn them into line breaks
+    if (ch === ' ') span.classList.add('slogan__char--space');
     span.textContent = ch === ' ' ? ' ' : ch;
     let waveIdx;
     if (i < mid) {
