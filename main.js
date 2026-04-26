@@ -124,8 +124,17 @@ composer.addPass(bloomPass);
 // FILM GRAIN — DOM ref, randomised every frame in animate()
 const grain = document.querySelector('.grain');
 
-// SCROLL PROGRESS BAR — fill height tied to scroll position (updated in animate())
-const scrollProgressFill = document.querySelector('.scroll-progress__fill');
+// SECTION NAV — track which deck section is currently in view + click-to-scroll
+const sectionNavItems = document.querySelectorAll('.section-nav__item');
+const sections = document.querySelectorAll('.deck');
+let activeSectionIdx = -1;
+
+// click any nav item → smooth-scroll to the matching section via Lenis
+sectionNavItems.forEach((item, i) => {
+  item.addEventListener('click', () => {
+    if (sections[i]) lenis.scrollTo(sections[i], { duration: 1.4 });
+  });
+});
 
 // SLOGAN — split into per-char spans and stagger their rise (staircase reveal)
 const sloganEl = document.querySelector('.slogan');
@@ -519,42 +528,52 @@ function animate(now) {
   // SCROLL PROGRESS — 0 at top, 1 after one viewport scrolled
   const scrollProgress = Math.min(window.scrollY / SCROLL_RANGE_PX(), 1);
 
-  // SHIP — sweep right→left, with depth scale + yaw + bigger wobble & float,
-  // brightness pulses rhythmically (engines breathing) without external glow.
+  // SHIP — trajectory flyby: tiny dot at mid-left → huge off-screen top-right.
+  // X interpolates linearly with scroll, Y eases (slow at start, sharp climb at end),
+  // scale grows on a power curve so the ship "warps" toward the camera near the end.
   if (ship) {
-    const shipX = SHIP_START_VW - scrollProgress * SHIP_TRAVEL_VW;
-    const shipY = Math.sin(time * 0.4) * 16;          // bigger vertical float
+    const t = scrollProgress;
+    const tEase = Math.pow(t, 1.6);       // power easing for Y + scale (dramatic at end)
 
-    // 1 at centre crossing (sp≈0.31), 0 at the far edges of the flight
-    const depthFactor = Math.max(0, 1 - Math.abs(scrollProgress - 0.31) / 0.45);
+    // path endpoints in viewport units (tweak these to reshape the trajectory)
+    const startX = 5,  startY = 70;      // mid-left, slightly below centre
+    const endX   = 115, endY   = -25;     // past the top-right corner
+    const cx = startX + (endX - startX) * t;
+    const cy = startY + (endY - startY) * tEase;
 
-    // depth illusion via scale + atmospheric brightness/saturate
-    const baseScale = 0.52 + depthFactor * 0.73;      // 0.52 → 1.25 (smaller start)
-    // SCROLL REACTION — grows while user is scrolling, shrinks back to baseScale
-    // when scroll velocity decays to 0. Lenis smooths velocity for us.
-    const scrollSpeed = Math.abs(lenis.velocity || 0);  // px/frame
-    const reactBoost = Math.min(scrollSpeed / 28, 0.55); // up to +55%
-    const scale = baseScale * (1 + reactBoost);
-    const saturate = 0.7 + depthFactor * 0.7;         // 0.7 → 1.4
-    const bankZ = Math.sin(time * 0.5) * 6;           // ±6° roll wobble (bigger)
+    // scale grows from a tiny dot to filling the screen
+    const SCALE_START = 0.08;
+    const SCALE_END   = 2.6;
+    const scale = SCALE_START + (SCALE_END - SCALE_START) * tEase;
 
-    // PULSE — applied to brightness so ship visibly breathes without halo glow
-    const pulse = 0.5 + 0.5 * Math.sin(time * 1.6);   // 0 → 1, ~1.6/sec
-    const brightness = (0.45 + depthFactor * 0.65) * (0.85 + pulse * 0.3); // pulses ±15%
+    // gentle banking + pulse — same engine "breathing" feel as before
+    const bankZ = Math.sin(time * 0.5) * 4 + (1 - t) * -3;  // tilts more at start
+    const pulse = 0.5 + 0.5 * Math.sin(time * 1.6);
+    const brightness = 0.7 + tEase * 0.4 + pulse * 0.1;     // brightens as it nears
+
+    // STAGED OPACITY — ship is invisible at start, ramps up in steps
+    // 0 → 10% → 20% → 100% as scroll progresses
+    let shipOpacity = 0;
+    if (t > 0)     shipOpacity = 0.10;
+    if (t > 0.03)  shipOpacity = 0.20;
+    if (t > 0.08)  shipOpacity = 1.00;
 
     ship.style.transform =
-      `translate3d(${shipX}vw, ${shipY}px, 0) ` +
-      `perspective(800px) rotateY(-15deg) rotateZ(${bankZ}deg) scale(${scale.toFixed(3)})`;
-    ship.style.filter =
-      `brightness(${brightness.toFixed(2)}) saturate(${saturate.toFixed(2)})`;
+      `translate3d(${cx.toFixed(2)}vw, ${cy.toFixed(2)}vh, 0) ` +
+      `scale(${scale.toFixed(3)}) rotate(${bankZ.toFixed(1)}deg)`;
+    ship.style.filter = `brightness(${brightness.toFixed(2)})`;
+    ship.style.opacity = String(shipOpacity);
   }
 
-  // DECK-2 REVEAL — text rises up + fades in as it enters viewport.
-  // Big translate distance + smooth easing so the rise is unmistakable.
+  // DECK-2 REVEAL — text rises up + fades in.
+  // LOOKAHEAD: how much earlier (px) the reveal starts before the card hits viewport.
+  // RANGE: how much scroll distance the full reveal spans.
   if (deckTwoInner) {
+    const REVEAL_LOOKAHEAD = 350;
+    const REVEAL_RANGE = 500;
     const rect = deckTwoInner.getBoundingClientRect();
-    const penetration = window.innerHeight - rect.top;     // px crossed below fold
-    const linear = Math.max(0, Math.min(penetration / 250, 1));
+    const penetration = window.innerHeight - rect.top + REVEAL_LOOKAHEAD;
+    const linear = Math.max(0, Math.min(penetration / REVEAL_RANGE, 1));
     const reveal = 1 - Math.pow(1 - linear, 3); // ease-out cubic
     deckTwoInner.style.opacity = String(reveal.toFixed(2));
     deckTwoInner.style.translate = `0 ${((1 - reveal) * 220).toFixed(0)}px`;
@@ -639,11 +658,19 @@ function animate(now) {
       `${(Math.random() * 200) | 0}px ${(Math.random() * 200) | 0}px`;
   }
 
-  // SCROLL PROGRESS — fill bar height = scroll position / max scroll
-  if (scrollProgressFill) {
-    const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-    const pct = maxScroll > 0 ? window.scrollY / maxScroll : 0;
-    scrollProgressFill.style.transform = `scaleY(${pct.toFixed(4)})`;
+  // SECTION NAV — pick the last section whose top has crossed viewport midline
+  if (sections.length && sectionNavItems.length) {
+    const midline = window.innerHeight * 0.5;
+    let idx = 0;
+    sections.forEach((s, i) => {
+      if (s.getBoundingClientRect().top <= midline) idx = i;
+    });
+    if (idx !== activeSectionIdx) {
+      activeSectionIdx = idx;
+      sectionNavItems.forEach((el, i) => {
+        el.classList.toggle('is-active', i === idx);
+      });
+    }
   }
 
   // HUD CLOCK — live mission time

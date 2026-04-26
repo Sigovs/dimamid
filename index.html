@@ -22,13 +22,14 @@
 
   <!-- ship — flies behind the astronaut on scroll -->
   <div class="ship" aria-hidden="true">
-    <img src="./assets/images/ship1.png" alt="" />
+    <img src="./assets/images/ship2.png" alt="" />
   </div>
 
-  <!-- thin vertical scroll-progress bar pinned to right edge -->
-  <div class="scroll-progress" aria-hidden="true">
-    <div class="scroll-progress__fill"></div>
-  </div>
+  <!-- section indicator pinned to top-right corner — current section highlighted -->
+  <nav class="section-nav" aria-label="Sections">
+    <span class="section-nav__item is-active" data-section="0">01</span>
+    <span class="section-nav__item" data-section="1">02</span>
+  </nav>
 
   <!-- film grain overlay sits on top of canvas, below cursor -->
   <div class="grain"></div>
@@ -52,7 +53,7 @@
   <section class="deck deck--two">
     <div class="deck__right">
       <div class="deck__inner" data-side-label="2025 — PRESENT">
-        <span class="deck__tag">// 01 — Voice</span>
+        <span class="deck__tag">// 02 — Voice</span>
         <h2 class="deck__title">The Voice &amp; The Orbit.</h2>
         <p class="deck__body">Dimamid is a music project built on one simple practice: paying attention. The songs sit between folk and ambient, rave and reflection — small, patient, full of questions that don't need answers. Always wondering why things must change is less a lyric than the orbit the whole catalogue moves around.</p>
       </div>
