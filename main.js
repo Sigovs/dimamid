@@ -93,7 +93,7 @@ circleTexture.colorSpace = THREE.SRGBColorSpace;
 // BACK STARFIELD (far stars)
 // ======================================================
 const starGeometry = new THREE.BufferGeometry();
-const starCount = 2000;
+const starCount = 3000;
 
 const starPositions = [];
 
@@ -182,14 +182,14 @@ loader.load('astronaut.glb', (gltf) => {
   // меньше: 2.0 / maxDim
   // ====================================================
   const maxDim = Math.max(size.x, size.y, size.z);
-  const scale = 2.4 / maxDim;
+  const scale = 1.8 / maxDim;
   model.scale.setScalar(scale);
 
   // ====================================================
   // VERTICAL POSITION
   // больше число = ниже модель
   // ====================================================
-  model.position.y -= 0.7;
+  model.position.y -=0.0007;
   baseY = model.position.y;
 
   // starting angle
